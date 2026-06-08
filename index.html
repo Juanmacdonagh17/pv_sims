@@ -64,6 +64,7 @@
   .slider-row input[type=range]{flex:1;max-width:280px;accent-color:var(--nst)}
   .slider-row b{font-family:"JetBrains Mono",monospace;color:var(--nst);font-size:.95rem}
   .unit-row{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:.82rem;color:var(--ink-soft)}
+  .seg-label{font-size:.72rem;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;letter-spacing:.04em;margin-bottom:5px}
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
   .seg button{border:0;background:#fff;padding:6px 13px;cursor:pointer;font-family:"JetBrains Mono",monospace;
     font-size:.8rem;color:var(--ink-soft)}
@@ -112,6 +113,13 @@
   </header>
 
   <div class="card controls" id="controls">
+    <div style="flex:1 1 100%">
+      <div class="seg-label">Convención del trabajo (definila primero)</div>
+      <span class="seg">
+        <button id="convOn" class="active">w = −∫P·dV · sobre el gas</button>
+        <button id="convBy">w = +∫P·dV · por el gas</button>
+      </span>
+    </div>
     <div class="field"><label>n (mol)</label><input id="n" type="number" step="0.05" value="0.25"></div>
     <div class="field"><label>T (°C)</label><input id="T" type="number" step="1" value="200"></div>
     <div class="field"><label>V inicial (L)</label><input id="Vi" type="number" step="0.5" value="3"></div>
@@ -136,7 +144,7 @@
     <div class="card"><div id="plot"></div></div>
     <div class="card">
       <h2>Cálculo del trabajo</h2>
-      <p class="conv">Convención: w = −∫P_ext dV (trabajo <b>sobre</b> el gas).
+      <p class="conv" id="convNote">Convención: w = −∫P_ext dV (trabajo <b>sobre</b> el gas).
         En una expansión w &lt; 0: el gas hace trabajo sobre el entorno.</p>
       <div id="calc"></div>
       <div class="summary" id="summary"></div>
@@ -150,11 +158,15 @@
 const R = 0.0820574;        // L·atm / (mol·K)
 const LATM_TO_J = 101.325;  // 1 L·atm = 101.325 J
 let unit = "L";             // "L" or "J"
+let convention = "on";      // "on": w=-∫P·dV (sobre el gas) | "by": w=+∫P·dV (por el gas)
 
 const $ = id => document.getElementById(id);
 const fmt = (x,d=3) => Number(x).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
 const conv = x => unit==="J" ? x*LATM_TO_J : x;
 const u = () => unit==="J" ? "J" : "L·atm";
+const sgn = () => convention==="on" ? 1 : -1;          // stored w is in "sobre el gas" form
+const sc  = () => convention==="on" ? "−" : "+";       // sign shown before the integral term
+const wd  = w => conv(w * sgn());                      // display value: convention sign + units
 
 function readState(){
   const n  = parseFloat($("n").value);
@@ -272,34 +284,34 @@ function drawCalc(st){
 
   let html="";
   if(st.show.rev){
-    html+=`<div class="calc rev"><h3>Reversible <span class="res">w = ${fmt(conv(wRev))} ${u()}</span></h3>
-    <div class="step">w = −nRT·ln(V_f / V_i)
+    html+=`<div class="calc rev"><h3>Reversible <span class="res">w = ${fmt(wd(wRev))} ${u()}</span></h3>
+    <div class="step">w = ${sc()}nRT·ln(V_f / V_i)
 nRT = ${fmt(st.n,3)}·${fmt(R,4)}·${fmt(st.T,2)} = ${fmt(nRT)} L·atm
-w = −${fmt(nRT)} · ln(${Vf}/${Vi}) = −${fmt(nRT)} · ${fmt(Math.log(Vf/Vi),4)}
-w = ${fmt(wRev)} L·atm${unit==="J"?`  →  ${fmt(conv(wRev))} J`:""}</div></div>`;
+w = ${sc()}${fmt(nRT)} · ln(${Vf}/${Vi}) = ${sc()}${fmt(nRT)} · ${fmt(Math.log(Vf/Vi),4)}
+w = ${fmt(wRev*sgn())} L·atm${unit==="J"?`  →  ${fmt(wd(wRev))} J`:""}</div></div>`;
   }
   if(st.show.one){
-    html+=`<div class="calc one"><h3>Una etapa (irrev.) <span class="res">w = ${fmt(conv(wOne))} ${u()}</span></h3>
+    html+=`<div class="calc one"><h3>Una etapa (irrev.) <span class="res">w = ${fmt(wd(wOne))} ${u()}</span></h3>
     <div class="step">P_ext = nRT/V_f = ${fmt(nRT)}/${Vf} = ${fmt(peOne)} atm
-w = −P_ext·(V_f − V_i) = −${fmt(peOne)}·(${Vf} − ${Vi})
-w = ${fmt(wOne)} L·atm${unit==="J"?`  →  ${fmt(conv(wOne))} J`:""}</div></div>`;
+w = ${sc()}P_ext·(V_f − V_i) = ${sc()}${fmt(peOne)}·(${Vf} − ${Vi})
+w = ${fmt(wOne*sgn())} L·atm${unit==="J"?`  →  ${fmt(wd(wOne))} J`:""}</div></div>`;
   }
   if(st.show.two){
-    html+=`<div class="calc two"><h3>Dos etapas (irrev.) <span class="res">w = ${fmt(conv(wTwo))} ${u()}</span></h3>
+    html+=`<div class="calc two"><h3>Dos etapas (irrev.) <span class="res">w = ${fmt(wd(wTwo))} ${u()}</span></h3>
     <div class="step">Etapa 1 (${Vi}→${Vm}): P_ext = nRT/${Vm} = ${fmt(pe1)} atm
-  w₁ = −${fmt(pe1)}·(${Vm}−${Vi}) = ${fmt(w2a)} L·atm
+  w₁ = ${sc()}${fmt(pe1)}·(${Vm}−${Vi}) = ${fmt(w2a*sgn())} L·atm
 Etapa 2 (${Vm}→${Vf}): P_ext = nRT/${Vf} = ${fmt(pe2)} atm
-  w₂ = −${fmt(pe2)}·(${Vf}−${Vm}) = ${fmt(w2b)} L·atm
-w = w₁ + w₂ = ${fmt(wTwo)} L·atm${unit==="J"?`  →  ${fmt(conv(wTwo))} J`:""}</div></div>`;
+  w₂ = ${sc()}${fmt(pe2)}·(${Vf}−${Vm}) = ${fmt(w2b*sgn())} L·atm
+w = w₁ + w₂ = ${fmt(wTwo*sgn())} L·atm${unit==="J"?`  →  ${fmt(wd(wTwo))} J`:""}</div></div>`;
   }
   if(st.show.n){
     const dV=(Vf-Vi)/st.Nst; let wN=0;
     for(let k=1;k<=st.Nst;k++){const vEnd=Vi+k*dV; wN+=-(nRT/vEnd)*dV;}
     const pct=wN/wRev*100;
-    html+=`<div class="calc nst"><h3>N etapas = ${st.Nst} (irrev.) <span class="res">w = ${fmt(conv(wN))} ${u()}</span></h3>
+    html+=`<div class="calc nst"><h3>N etapas = ${st.Nst} (irrev.) <span class="res">w = ${fmt(wd(wN))} ${u()}</span></h3>
     <div class="step">División en ${st.Nst} tramos iguales de ΔV = ${fmt(dV,4)} L
 En cada tramo: P_ext = nRT / (V al final del tramo)
-w = Σ −P_ext·ΔV = ${fmt(wN)} L·atm${unit==="J"?`  →  ${fmt(conv(wN))} J`:""}
+w = Σ ${sc()}P_ext·ΔV = ${fmt(wN*sgn())} L·atm${unit==="J"?`  →  ${fmt(wd(wN))} J`:""}
 ≈ ${fmt(pct,1)} % del trabajo reversible</div></div>`;
   }
   $("calc").innerHTML=html || '<p style="color:var(--ink-soft);font-size:.85rem">Activá al menos un proceso arriba.</p>';
@@ -311,7 +323,11 @@ w = Σ −P_ext·ΔV = ${fmt(wN)} L·atm${unit==="J"?`  →  ${fmt(conv(wN))} J`
      |w<sub>1 etapa</sub>| = <b>${fmt(Math.abs(conv(wOne)),2)}</b> ${u()}.<br>
      El proceso reversible entrega el trabajo máximo; agregar etapas acerca el irreversible a ese límite.`;
 
-  $("foot").innerHTML=`Modelo: gas ideal, proceso isotérmico (T constante ⇒ ΔU=0, así que q = −w).
+  $("convNote").innerHTML = convention==="on"
+    ? `Convención: w = −∫P_ext·dV (trabajo <b>sobre</b> el gas; ΔU = q + w). En esta expansión w &lt; 0: el gas entrega trabajo al entorno.`
+    : `Convención: w = +∫P_ext·dV (trabajo hecho <b>por</b> el gas; ΔU = q − w). En esta expansión w &gt; 0: el gas entrega trabajo al entorno.`;
+
+  $("foot").innerHTML=`Modelo: gas ideal, proceso isotermo (T constante ⇒ ΔU=0, así que ${convention==="on"?"q = −w":"q = w"}).
     R = ${R} L·atm·mol⁻¹·K⁻¹ ; 1 L·atm = ${LATM_TO_J} J. Los procesos irreversibles usan P_ext
     constante igual a la presión de equilibrio al final de cada etapa.`;
 }
@@ -331,6 +347,8 @@ function render(){
 $("Nst").addEventListener("input",()=>{$("NstVal").textContent=$("Nst").value;render();});
 $("uL").addEventListener("click",()=>{unit="L";$("uL").classList.add("active");$("uJ").classList.remove("active");render();});
 $("uJ").addEventListener("click",()=>{unit="J";$("uJ").classList.add("active");$("uL").classList.remove("active");render();});
+$("convOn").addEventListener("click",()=>{convention="on";$("convOn").classList.add("active");$("convBy").classList.remove("active");render();});
+$("convBy").addEventListener("click",()=>{convention="by";$("convBy").classList.add("active");$("convOn").classList.remove("active");render();});
 render();
 </script>
 </body>
