@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trabajo en expansión isoterma · Diagrama P–V</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Spline+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f4efe4;
+    --panel:#fffdf7;
+    --ink:#1d1b16;
+    --ink-soft:#5c574c;
+    --line:#d8d0bf;
+    --rev:#1f7a6b;     /* reversible  */
+    --one:#c0562f;     /* una etapa   */
+    --two:#3d5a98;     /* dos etapas  */
+    --rev-fill:rgba(31,122,107,.16);
+    --one-fill:rgba(192,86,47,.16);
+    --two-fill:rgba(61,90,152,.16);
+    --nst:#6f4a96;     /* N etapas    */
+    --nst-fill:rgba(111,74,150,.13);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Spline Sans",sans-serif; line-height:1.5;
+    background-image:radial-gradient(rgba(0,0,0,.025) 1px,transparent 1px);
+    background-size:22px 22px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:32px 22px 64px}
+  header{margin-bottom:22px;border-bottom:2px solid var(--ink);padding-bottom:14px}
+  .kicker{font-family:"JetBrains Mono",monospace;font-size:.72rem;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--one);margin:0 0 4px}
+  h1{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(1.8rem,4vw,2.9rem);
+    line-height:1.02;margin:0;letter-spacing:-.01em}
+  .sub{color:var(--ink-soft);max-width:62ch;margin:10px 0 0;font-size:.95rem}
+
+  .grid{display:grid;grid-template-columns:1.35fr 1fr;gap:24px;margin-top:24px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px;box-shadow:0 1px 0 rgba(0,0,0,.03),0 14px 30px -22px rgba(0,0,0,.4)}
+
+  /* controls */
+  .controls{display:flex;flex-wrap:wrap;gap:14px 18px;align-items:flex-end;margin-bottom:18px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:.72rem;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;
+    letter-spacing:.04em}
+  .field input{width:88px;padding:7px 9px;border:1px solid var(--line);border-radius:7px;
+    background:#fff;font-family:"JetBrains Mono",monospace;font-size:.9rem;color:var(--ink)}
+  .field input:focus{outline:2px solid var(--rev);outline-offset:-1px}
+  .toggles{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+  .chip{display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;
+    border:1px solid var(--line);background:#fff;border-radius:20px;padding:6px 13px;
+    font-size:.82rem;font-weight:500;transition:.15s}
+  .chip input{display:none}
+  .chip .dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto}
+  .chip[data-k=rev] .dot{background:var(--rev)} .chip[data-k=one] .dot{background:var(--one)} .chip[data-k=two] .dot{background:var(--two)} .chip[data-k=n] .dot{background:var(--nst)}
+  .chip.off{opacity:.42;text-decoration:line-through}
+  .slider-row{display:flex;align-items:center;gap:12px;margin-top:14px;font-size:.82rem;color:var(--ink-soft)}
+  .slider-row input[type=range]{flex:1;max-width:280px;accent-color:var(--nst)}
+  .slider-row b{font-family:"JetBrains Mono",monospace;color:var(--nst);font-size:.95rem}
+  .unit-row{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:.82rem;color:var(--ink-soft)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{border:0;background:#fff;padding:6px 13px;cursor:pointer;font-family:"JetBrains Mono",monospace;
+    font-size:.8rem;color:var(--ink-soft)}
+  .seg button.active{background:var(--ink);color:var(--paper)}
+
+  /* plot */
+  svg{width:100%;height:auto;display:block}
+  .axis-line{stroke:var(--ink);stroke-width:1.4}
+  .grid-line{stroke:var(--line);stroke-width:1}
+  .tick-txt{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft)}
+  .axis-title{font-family:"Fraunces",serif;font-size:14px;font-weight:600;fill:var(--ink)}
+  .curve{fill:none;stroke:var(--rev);stroke-width:2.6}
+  .rect-edge{fill:none;stroke-width:1.8;stroke-dasharray:5 4}
+  .pt{stroke:#fff;stroke-width:1.5}
+  .pt-lbl{font-family:"JetBrains Mono",monospace;font-size:10.5px;fill:var(--ink)}
+
+  /* calc panel */
+  h2{font-family:"Fraunces",serif;font-weight:600;font-size:1.15rem;margin:0 0 2px}
+  .conv{font-size:.82rem;color:var(--ink-soft);margin:0 0 16px;
+    border-left:3px solid var(--ink);padding-left:10px}
+  .calc{border-radius:9px;padding:13px 14px;margin-bottom:12px;border:1px solid var(--line)}
+  .calc.rev{background:var(--rev-fill);border-color:var(--rev)}
+  .calc.one{background:var(--one-fill);border-color:var(--one)}
+  .calc.two{background:var(--two-fill);border-color:var(--two)}
+  .calc.nst{background:var(--nst-fill);border-color:var(--nst)}
+  .calc h3{margin:0 0 6px;font-size:.95rem;font-family:"Spline Sans";font-weight:600;
+    display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .calc .step{font-family:"JetBrains Mono",monospace;font-size:.79rem;color:var(--ink-soft);
+    line-height:1.7;white-space:pre-wrap;word-break:break-word}
+  .res{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:.95rem}
+  .calc.rev .res{color:var(--rev)} .calc.one .res{color:var(--one)} .calc.two .res{color:var(--two)} .calc.nst .res{color:var(--nst)}
+  .summary{margin-top:16px;font-size:.86rem;background:#fff;border:1px dashed var(--ink);
+    border-radius:9px;padding:12px 14px}
+  .summary b{font-family:"JetBrains Mono",monospace}
+  .foot{margin-top:28px;font-size:.78rem;color:var(--ink-soft);max-width:70ch}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="kicker">Termodinámica · Trabajo P–V</p>
+    <h1>Expansión isoterma de un gas ideal</h1>
+    <p class="sub">Comparación del trabajo entre una expansión reversible y dos expansiones
+      irreversibles (1 y 2 etapas). El trabajo es el área bajo P_ext frente a V; cuantas más
+      etapas, más cerca del máximo reversible.</p>
+  </header>
+
+  <div class="card controls" id="controls">
+    <div class="field"><label>n (mol)</label><input id="n" type="number" step="0.05" value="0.25"></div>
+    <div class="field"><label>T (°C)</label><input id="T" type="number" step="1" value="200"></div>
+    <div class="field"><label>V inicial (L)</label><input id="Vi" type="number" step="0.5" value="3"></div>
+    <div class="field"><label>V intermedio (L)</label><input id="Vm" type="number" step="0.5" value="6"></div>
+    <div class="field"><label>V final (L)</label><input id="Vf" type="number" step="0.5" value="10"></div>
+    <div style="flex:1 1 100%">
+      <div class="toggles">
+        <label class="chip" data-k="rev"><input type="checkbox" id="cRev" checked><span class="dot"></span>Reversible</label>
+        <label class="chip" data-k="one"><input type="checkbox" id="cOne" checked><span class="dot"></span>1 etapa</label>
+        <label class="chip" data-k="two"><input type="checkbox" id="cTwo" checked><span class="dot"></span>2 etapas</label>
+        <label class="chip" data-k="n"><input type="checkbox" id="cN" checked><span class="dot"></span>N etapas</label>
+      </div>
+      <div class="slider-row"><label>Número de etapas (N): <b id="NstVal">8</b></label>
+        <input id="Nst" type="range" min="1" max="40" value="8"></div>
+      <div class="unit-row">Unidades del trabajo:
+        <span class="seg"><button id="uL" class="active">L·atm</button><button id="uJ">J</button></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div id="plot"></div></div>
+    <div class="card">
+      <h2>Cálculo del trabajo</h2>
+      <p class="conv">Convención: w = −∫P_ext dV (trabajo <b>sobre</b> el gas).
+        En una expansión w &lt; 0: el gas hace trabajo sobre el entorno.</p>
+      <div id="calc"></div>
+      <div class="summary" id="summary"></div>
+    </div>
+  </div>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<script>
+const R = 0.0820574;        // L·atm / (mol·K)
+const LATM_TO_J = 101.325;  // 1 L·atm = 101.325 J
+let unit = "L";             // "L" or "J"
+
+const $ = id => document.getElementById(id);
+const fmt = (x,d=3) => Number(x).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const conv = x => unit==="J" ? x*LATM_TO_J : x;
+const u = () => unit==="J" ? "J" : "L·atm";
+
+function readState(){
+  const n  = parseFloat($("n").value);
+  const Tc = parseFloat($("T").value);
+  const Vi = parseFloat($("Vi").value);
+  const Vm = parseFloat($("Vm").value);
+  const Vf = parseFloat($("Vf").value);
+  const T  = Tc + 273.15;
+  const nRT = n*R*T;
+  const Nst = parseInt($("Nst").value);
+  return {n,Tc,T,Vi,Vm,Vf,nRT,Nst,
+    show:{rev:$("cRev").checked, one:$("cOne").checked, two:$("cTwo").checked, n:$("cN").checked}};
+}
+
+function niceStep(max,count){
+  const raw = max/count, mag = Math.pow(10,Math.floor(Math.log10(raw))), nrm = raw/mag;
+  const nice = nrm<=1?1: nrm<=2?2: nrm<=2.5?2.5: nrm<=5?5:10;
+  return nice*mag;
+}
+function ticks(max,count){
+  const s=niceStep(max,count), out=[];
+  for(let v=0; v<=max+1e-9; v+=s) out.push(+v.toFixed(6));
+  return out;
+}
+
+function drawPlot(st){
+  if([st.n,st.T,st.Vi,st.Vm,st.Vf].some(v=>!isFinite(v)) || st.Vi<=0 || st.Vf<=st.Vi){
+    $("plot").innerHTML='<p style="font-family:monospace;color:#c0562f;padding:20px">Revisá los valores: V final &gt; V inicial &gt; 0.</p>';
+    return;
+  }
+  const W=760,H=520, m={l:74,r:30,t:30,b:62};
+  const pw=W-m.l-m.r, ph=H-m.t-m.b;
+  const P = v => st.nRT/v;
+  const vMax = st.Vf*1.15;
+  const pMax = P(st.Vi)*1.12;
+  const X = v => m.l + (v/vMax)*pw;
+  const Y = p => m.t + ph - (p/pMax)*ph;
+
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Diagrama presión-volumen">`;
+
+  // grid + ticks
+  for(const t of ticks(vMax,9)){
+    const x=X(t);
+    s+=`<line class="grid-line" x1="${x}" y1="${m.t}" x2="${x}" y2="${m.t+ph}"/>`;
+    s+=`<text class="tick-txt" x="${x}" y="${m.t+ph+18}" text-anchor="middle">${t}</text>`;
+  }
+  for(const t of ticks(pMax,7)){
+    const y=Y(t);
+    s+=`<line class="grid-line" x1="${m.l}" y1="${y}" x2="${m.l+pw}" y2="${y}"/>`;
+    s+=`<text class="tick-txt" x="${m.l-9}" y="${y+4}" text-anchor="end">${t.toFixed(2)}</text>`;
+  }
+
+  // areas (drawn under the curve/edges)
+  if(st.show.rev){
+    let pts=`${X(st.Vi)},${Y(0)} `;
+    const N=80;
+    for(let i=0;i<=N;i++){const v=st.Vi+(st.Vf-st.Vi)*i/N; pts+=`${X(v)},${Y(P(v))} `;}
+    pts+=`${X(st.Vf)},${Y(0)}`;
+    s+=`<polygon points="${pts}" fill="var(--rev-fill)"/>`;
+  }
+  if(st.show.one){
+    const pe=P(st.Vf);
+    s+=`<rect x="${X(st.Vi)}" y="${Y(pe)}" width="${X(st.Vf)-X(st.Vi)}" height="${Y(0)-Y(pe)}" fill="var(--one-fill)"/>`;
+    s+=`<rect class="rect-edge" stroke="var(--one)" x="${X(st.Vi)}" y="${Y(pe)}" width="${X(st.Vf)-X(st.Vi)}" height="${Y(0)-Y(pe)}"/>`;
+  }
+  if(st.show.two){
+    const p1=P(st.Vm), p2=P(st.Vf);
+    s+=`<rect x="${X(st.Vi)}" y="${Y(p1)}" width="${X(st.Vm)-X(st.Vi)}" height="${Y(0)-Y(p1)}" fill="var(--two-fill)"/>`;
+    s+=`<rect x="${X(st.Vm)}" y="${Y(p2)}" width="${X(st.Vf)-X(st.Vm)}" height="${Y(0)-Y(p2)}" fill="var(--two-fill)"/>`;
+    s+=`<rect class="rect-edge" stroke="var(--two)" x="${X(st.Vi)}" y="${Y(p1)}" width="${X(st.Vm)-X(st.Vi)}" height="${Y(0)-Y(p1)}"/>`;
+    s+=`<rect class="rect-edge" stroke="var(--two)" x="${X(st.Vm)}" y="${Y(p2)}" width="${X(st.Vf)-X(st.Vm)}" height="${Y(0)-Y(p2)}"/>`;
+  }
+
+  // N-stage staircase (equal volume divisions, P_ext = nRT/V_end of each step)
+  if(st.show.n && st.Nst>=1){
+    const dV=(st.Vf-st.Vi)/st.Nst;
+    for(let k=1;k<=st.Nst;k++){
+      const vEnd=st.Vi+k*dV, vStart=vEnd-dV, pe=P(vEnd);
+      s+=`<rect x="${X(vStart)}" y="${Y(pe)}" width="${X(vEnd)-X(vStart)}" height="${Y(0)-Y(pe)}" fill="var(--nst-fill)" stroke="var(--nst)" stroke-width="0.7"/>`;
+    }
+  }
+
+  // reversible isotherm curve (always drawn faintly as reference, bold if shown)
+  let cpts="";
+  const M=120;
+  for(let i=0;i<=M;i++){const v=st.Vi+(st.Vf-st.Vi)*i/M; cpts+=`${X(v)},${Y(P(v))} `;}
+  s+=`<polyline class="curve" points="${cpts}" style="opacity:${st.show.rev?1:.28}"/>`;
+
+  // axes
+  s+=`<line class="axis-line" x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${m.t+ph}"/>`;
+  s+=`<line class="axis-line" x1="${m.l}" y1="${m.t+ph}" x2="${m.l+pw}" y2="${m.t+ph}"/>`;
+  s+=`<text class="axis-title" x="${m.l+pw/2}" y="${H-12}" text-anchor="middle">Volumen  V  (L)</text>`;
+  s+=`<text class="axis-title" transform="translate(20,${m.t+ph/2}) rotate(-90)" text-anchor="middle">Presión  P  (atm)</text>`;
+
+  // key points on the isotherm
+  const mark=(v,c,lbl)=>{
+    const p=P(v);
+    s+=`<circle class="pt" cx="${X(v)}" cy="${Y(p)}" r="4.5" fill="${c}"/>`;
+    s+=`<text class="pt-lbl" x="${X(v)+8}" y="${Y(p)-7}">${lbl}</text>`;
+  };
+  mark(st.Vi,"#1d1b16",`V=${st.Vi} · P=${P(st.Vi).toFixed(2)}`);
+  if(st.show.two) mark(st.Vm,"var(--two)",`V=${st.Vm} · P=${P(st.Vm).toFixed(2)}`);
+  mark(st.Vf,"#1d1b16",`V=${st.Vf} · P=${P(st.Vf).toFixed(2)}`);
+
+  s+=`</svg>`;
+  $("plot").innerHTML=s;
+}
+
+function drawCalc(st){
+  const {nRT,Vi,Vm,Vf}=st;
+  const peOne=nRT/Vf, pe1=nRT/Vm, pe2=nRT/Vf;
+  const wRev=-nRT*Math.log(Vf/Vi);
+  const wOne=-peOne*(Vf-Vi);
+  const w2a=-pe1*(Vm-Vi), w2b=-pe2*(Vf-Vm), wTwo=w2a+w2b;
+
+  let html="";
+  if(st.show.rev){
+    html+=`<div class="calc rev"><h3>Reversible <span class="res">w = ${fmt(conv(wRev))} ${u()}</span></h3>
+    <div class="step">w = −nRT·ln(V_f / V_i)
+nRT = ${fmt(st.n,3)}·${fmt(R,4)}·${fmt(st.T,2)} = ${fmt(nRT)} L·atm
+w = −${fmt(nRT)} · ln(${Vf}/${Vi}) = −${fmt(nRT)} · ${fmt(Math.log(Vf/Vi),4)}
+w = ${fmt(wRev)} L·atm${unit==="J"?`  →  ${fmt(conv(wRev))} J`:""}</div></div>`;
+  }
+  if(st.show.one){
+    html+=`<div class="calc one"><h3>Una etapa (irrev.) <span class="res">w = ${fmt(conv(wOne))} ${u()}</span></h3>
+    <div class="step">P_ext = nRT/V_f = ${fmt(nRT)}/${Vf} = ${fmt(peOne)} atm
+w = −P_ext·(V_f − V_i) = −${fmt(peOne)}·(${Vf} − ${Vi})
+w = ${fmt(wOne)} L·atm${unit==="J"?`  →  ${fmt(conv(wOne))} J`:""}</div></div>`;
+  }
+  if(st.show.two){
+    html+=`<div class="calc two"><h3>Dos etapas (irrev.) <span class="res">w = ${fmt(conv(wTwo))} ${u()}</span></h3>
+    <div class="step">Etapa 1 (${Vi}→${Vm}): P_ext = nRT/${Vm} = ${fmt(pe1)} atm
+  w₁ = −${fmt(pe1)}·(${Vm}−${Vi}) = ${fmt(w2a)} L·atm
+Etapa 2 (${Vm}→${Vf}): P_ext = nRT/${Vf} = ${fmt(pe2)} atm
+  w₂ = −${fmt(pe2)}·(${Vf}−${Vm}) = ${fmt(w2b)} L·atm
+w = w₁ + w₂ = ${fmt(wTwo)} L·atm${unit==="J"?`  →  ${fmt(conv(wTwo))} J`:""}</div></div>`;
+  }
+  if(st.show.n){
+    const dV=(Vf-Vi)/st.Nst; let wN=0;
+    for(let k=1;k<=st.Nst;k++){const vEnd=Vi+k*dV; wN+=-(nRT/vEnd)*dV;}
+    const pct=wN/wRev*100;
+    html+=`<div class="calc nst"><h3>N etapas = ${st.Nst} (irrev.) <span class="res">w = ${fmt(conv(wN))} ${u()}</span></h3>
+    <div class="step">División en ${st.Nst} tramos iguales de ΔV = ${fmt(dV,4)} L
+En cada tramo: P_ext = nRT / (V al final del tramo)
+w = Σ −P_ext·ΔV = ${fmt(wN)} L·atm${unit==="J"?`  →  ${fmt(conv(wN))} J`:""}
+≈ ${fmt(pct,1)} % del trabajo reversible</div></div>`;
+  }
+  $("calc").innerHTML=html || '<p style="color:var(--ink-soft);font-size:.85rem">Activá al menos un proceso arriba.</p>';
+
+  $("summary").innerHTML=
+    `Comparación de magnitudes (más área = más trabajo):<br>
+     |w<sub>rev</sub>| = <b>${fmt(Math.abs(conv(wRev)),2)}</b> &gt;
+     |w<sub>2 etapas</sub>| = <b>${fmt(Math.abs(conv(wTwo)),2)}</b> &gt;
+     |w<sub>1 etapa</sub>| = <b>${fmt(Math.abs(conv(wOne)),2)}</b> ${u()}.<br>
+     El proceso reversible entrega el trabajo máximo; agregar etapas acerca el irreversible a ese límite.`;
+
+  $("foot").innerHTML=`Modelo: gas ideal, proceso isotérmico (T constante ⇒ ΔU=0, así que q = −w).
+    R = ${R} L·atm·mol⁻¹·K⁻¹ ; 1 L·atm = ${LATM_TO_J} J. Los procesos irreversibles usan P_ext
+    constante igual a la presión de equilibrio al final de cada etapa.`;
+}
+
+function render(){
+  const st=readState();
+  document.querySelectorAll(".chip").forEach(c=>{
+    const k=c.dataset.k, on={rev:st.show.rev,one:st.show.one,two:st.show.two,n:st.show.n}[k];
+    c.classList.toggle("off",!on);
+  });
+  drawPlot(st);
+  drawCalc(st);
+}
+
+["n","T","Vi","Vm","Vf"].forEach(id=>$(id).addEventListener("input",render));
+["cRev","cOne","cTwo","cN"].forEach(id=>$(id).addEventListener("change",render));
+$("Nst").addEventListener("input",()=>{$("NstVal").textContent=$("Nst").value;render();});
+$("uL").addEventListener("click",()=>{unit="L";$("uL").classList.add("active");$("uJ").classList.remove("active");render();});
+$("uJ").addEventListener("click",()=>{unit="J";$("uJ").classList.add("active");$("uL").classList.remove("active");render();});
+render();
+</script>
+</body>
+</html>
